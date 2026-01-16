@@ -439,7 +439,7 @@ fun CameraScreen(
                         .fillMaxWidth()
                         .height(56.dp)
                 ) {
-                    Text("📷 Take Photo from Camera", fontSize = 16.sp)
+                    Text("Take Photo from Camera", fontSize = 16.sp)
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -450,7 +450,7 @@ fun CameraScreen(
                         .fillMaxWidth()
                         .height(56.dp)
                 ) {
-                    Text("🖼️ Pick from Gallery", fontSize = 16.sp)
+                    Text("Pick from Gallery", fontSize = 16.sp)
                 }
                 
                 Spacer(modifier = Modifier.height(16.dp))
