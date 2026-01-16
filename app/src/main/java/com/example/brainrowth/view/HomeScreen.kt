@@ -21,6 +21,9 @@ import com.example.brainrowth.ui.components.CameraCapture
 import com.example.brainrowth.ui.components.MathKeyboard
 import com.example.brainrowth.ui.components.MathExpressionDisplay
 import com.example.brainrowth.ui.components.GalleryPicker
+import com.example.brainrowth.ui.components.AdvancedMathKeyboard
+import com.example.brainrowth.ui.components.ImageCropper
+import android.graphics.Bitmap
 import com.example.brainrowth.viewmodel.SolverViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -142,6 +145,7 @@ fun ManualInputScreen(
     onShowKeyboardChange: (Boolean) -> Unit
 ) {
     val state = viewModel.uiState.value
+    var useAdvancedKeyboard by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -153,11 +157,27 @@ fun ManualInputScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Enter Math Problem",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Enter Math Problem",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                
+                // Toggle for advanced keyboard
+                TextButton(
+                    onClick = { useAdvancedKeyboard = !useAdvancedKeyboard }
+                ) {
+                    Text(
+                        if (useAdvancedKeyboard) "Simple Mode" else "Advanced Mode",
+                        fontSize = 12.sp
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -324,19 +344,35 @@ fun ManualInputScreen(
 
         // Math keyboard at bottom
         if (showKeyboard) {
-            MathKeyboard(
-                onKeyClick = { key ->
-                    viewModel.onQuestionChange(state.question + key)
-                },
-                onDeleteClick = {
-                    if (state.question.isNotEmpty()) {
-                        viewModel.onQuestionChange(state.question.dropLast(1))
+            if (useAdvancedKeyboard) {
+                AdvancedMathKeyboard(
+                    onKeyClick = { key ->
+                        viewModel.onQuestionChange(state.question + key)
+                    },
+                    onDeleteClick = {
+                        if (state.question.isNotEmpty()) {
+                            viewModel.onQuestionChange(state.question.dropLast(1))
+                        }
+                    },
+                    onClearClick = {
+                        viewModel.onQuestionChange("")
                     }
-                },
-                onClearClick = {
-                    viewModel.onQuestionChange("")
-                }
-            )
+                )
+            } else {
+                MathKeyboard(
+                    onKeyClick = { key ->
+                        viewModel.onQuestionChange(state.question + key)
+                    },
+                    onDeleteClick = {
+                        if (state.question.isNotEmpty()) {
+                            viewModel.onQuestionChange(state.question.dropLast(1))
+                        }
+                    },
+                    onClearClick = {
+                        viewModel.onQuestionChange("")
+                    }
+                )
+            }
         }
     }
 }
@@ -349,8 +385,38 @@ fun CameraScreen(
     var mode by remember { mutableStateOf<String?>(null) } // null = choice, "camera" = camera, "gallery" = gallery
     var isProcessing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var capturedBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var showCropper by remember { mutableStateOf(false) }
 
-    when (mode) {
+    // Show cropper if image is captured
+    if (showCropper && capturedBitmap != null) {
+        ImageCropper(
+            bitmap = capturedBitmap!!,
+            onCropConfirmed = { croppedBitmap ->
+                showCropper = false
+                isProcessing = true
+                recognizeTextFromBitmap(
+                    bitmap = croppedBitmap,
+                    onResult = { text ->
+                        viewModel.onQuestionChange(text)
+                        viewModel.solve()
+                        capturedBitmap = null
+                        onBackToManual()
+                    },
+                    onError = { exception ->
+                        errorMessage = "OCR Error: ${exception.message}"
+                        isProcessing = false
+                        capturedBitmap = null
+                    }
+                )
+            },
+            onCancel = {
+                showCropper = false
+                capturedBitmap = null
+                mode = null
+            }
+        )
+    } else when (mode) {
         null -> {
             // Show choice screen
             Column(
@@ -401,19 +467,8 @@ fun CameraScreen(
             if (!isProcessing) {
                 CameraCapture(
                     onImageCaptured = { bitmap ->
-                        isProcessing = true
-                        recognizeTextFromBitmap(
-                            bitmap = bitmap,
-                            onResult = { text ->
-                                viewModel.onQuestionChange(text)
-                                viewModel.solve()
-                                onBackToManual()
-                            },
-                            onError = { exception ->
-                                errorMessage = "OCR Error: ${exception.message}"
-                                isProcessing = false
-                            }
-                        )
+                        capturedBitmap = bitmap
+                        showCropper = true
                     },
                     onError = { exception ->
                         errorMessage = "Camera Error: ${exception.message}"
@@ -435,19 +490,8 @@ fun CameraScreen(
             if (!isProcessing) {
                 GalleryPicker(
                     onImagePicked = { bitmap ->
-                        isProcessing = true
-                        recognizeTextFromBitmap(
-                            bitmap = bitmap,
-                            onResult = { text ->
-                                viewModel.onQuestionChange(text)
-                                viewModel.solve()
-                                onBackToManual()
-                            },
-                            onError = { exception ->
-                                errorMessage = "OCR Error: ${exception.message}"
-                                isProcessing = false
-                            }
-                        )
+                        capturedBitmap = bitmap
+                        showCropper = true
                     },
                     onError = { exception ->
                         errorMessage = "Gallery Error: ${exception.message}"
