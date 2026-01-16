@@ -20,6 +20,7 @@ import com.example.brainrowth.recognizeTextFromBitmap
 import com.example.brainrowth.ui.components.CameraCapture
 import com.example.brainrowth.ui.components.MathKeyboard
 import com.example.brainrowth.ui.components.MathExpressionDisplay
+import com.example.brainrowth.ui.components.GalleryPicker
 import com.example.brainrowth.viewmodel.SolverViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -256,7 +257,7 @@ fun ManualInputScreen(
             if (state.errorMessage != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = state.errorMessage ?: "",
+                    text = state.errorMessage,
                     color = MaterialTheme.colorScheme.error,
                     fontSize = 12.sp
                 )
@@ -345,66 +346,179 @@ fun CameraScreen(
     viewModel: SolverViewModel,
     onBackToManual: () -> Unit
 ) {
-    var isCapturing by remember { mutableStateOf(true) }
+    var mode by remember { mutableStateOf<String?>(null) } // null = choice, "camera" = camera, "gallery" = gallery
+    var isProcessing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    if (isCapturing) {
-        CameraCapture(
-            onImageCaptured = { bitmap ->
-                isCapturing = false
-                recognizeTextFromBitmap(
-                    bitmap = bitmap,
-                    onResult = { text ->
-                        viewModel.onQuestionChange(text)
-                        viewModel.solve()
-                        onBackToManual()
+    when (mode) {
+        null -> {
+            // Show choice screen
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Choose Image Source",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Button(
+                    onClick = { mode = "camera" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("📷 Take Photo from Camera", fontSize = 16.sp)
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = { mode = "gallery" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text("🖼️ Pick from Gallery", fontSize = 16.sp)
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Button(
+                    onClick = onBackToManual,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Back to Manual Input")
+                }
+            }
+        }
+        "camera" -> {
+            if (!isProcessing) {
+                CameraCapture(
+                    onImageCaptured = { bitmap ->
+                        isProcessing = true
+                        recognizeTextFromBitmap(
+                            bitmap = bitmap,
+                            onResult = { text ->
+                                viewModel.onQuestionChange(text)
+                                viewModel.solve()
+                                onBackToManual()
+                            },
+                            onError = { exception ->
+                                errorMessage = "OCR Error: ${exception.message}"
+                                isProcessing = false
+                            }
+                        )
                     },
                     onError = { exception ->
-                        errorMessage = "OCR Error: ${exception.message}"
-                        isCapturing = false
+                        errorMessage = "Camera Error: ${exception.message}"
+                        mode = null
                     }
                 )
-            },
-            onError = { exception ->
-                errorMessage = "Camera Error: ${exception.message}"
-                isCapturing = false
-            }
-        )
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage ?: "",
-                    color = MaterialTheme.colorScheme.error
-                )
-                Spacer(modifier = Modifier.height(16.dp))
             } else {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Processing image...")
+                ProcessingScreen(
+                    onTryAgain = { 
+                        isProcessing = false
+                        errorMessage = null
+                    },
+                    onBack = { mode = null },
+                    errorMessage = errorMessage
+                )
             }
-            
-            Button(
-                onClick = { 
-                    isCapturing = true
-                    errorMessage = null
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Try Again")
+        }
+        "gallery" -> {
+            if (!isProcessing) {
+                GalleryPicker(
+                    onImagePicked = { bitmap ->
+                        isProcessing = true
+                        recognizeTextFromBitmap(
+                            bitmap = bitmap,
+                            onResult = { text ->
+                                viewModel.onQuestionChange(text)
+                                viewModel.solve()
+                                onBackToManual()
+                            },
+                            onError = { exception ->
+                                errorMessage = "OCR Error: ${exception.message}"
+                                isProcessing = false
+                            }
+                        )
+                    },
+                    onError = { exception ->
+                        errorMessage = "Gallery Error: ${exception.message}"
+                        mode = null
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = { mode = null },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text("Back")
+                }
+            } else {
+                ProcessingScreen(
+                    onTryAgain = { 
+                        isProcessing = false
+                        errorMessage = null
+                        mode = "gallery"
+                    },
+                    onBack = { mode = null },
+                    errorMessage = errorMessage
+                )
             }
-            
-            Button(
-                onClick = onBackToManual,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Back to Manual Input")
-            }
+        }
+    }
+}
+
+@Composable
+fun ProcessingScreen(
+    onTryAgain: () -> Unit,
+    onBack: () -> Unit,
+    errorMessage: String? = null
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        } else {
+            CircularProgressIndicator()
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Processing image...")
+        }
+        
+        Button(
+            onClick = onTryAgain,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Try Again")
+        }
+        
+        Button(
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Back")
         }
     }
 }

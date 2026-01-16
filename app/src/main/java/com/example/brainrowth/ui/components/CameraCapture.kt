@@ -11,7 +11,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -102,7 +102,7 @@ fun CameraCapture(
                 .align(Alignment.BottomCenter)
                 .padding(16.dp)
         ) {
-            Icon(imageVector = Icons.Filled.ShoppingCart, contentDescription = "Take Picture")
+            Icon(imageVector = Icons.Filled.Camera, contentDescription = "Take Picture")
         }
     }
 }

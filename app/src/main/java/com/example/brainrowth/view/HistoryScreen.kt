@@ -56,7 +56,7 @@ fun HistoryScreen(
                 }
             }
             
-            Divider()
+            HorizontalDivider()
         }
 
         // History list
