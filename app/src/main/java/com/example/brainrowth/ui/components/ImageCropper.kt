@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -35,15 +35,12 @@ fun ImageCropper(
     var cropRect by remember {
         mutableStateOf(
             Rect(
-                offset = Offset(50f, 50f),
-                size = Size(
-                    (bitmap.width - 100).toFloat().coerceAtLeast(100f),
-                    (bitmap.height - 100).toFloat().coerceAtLeast(100f)
-                )
+                Offset(100f, 100f),
+                Size(300f, 300f)
             )
         )
     }
-    
+
     var dragMode by remember { mutableStateOf(DragMode.NONE) }
     var canvasSize by remember { mutableStateOf(Size.Zero) }
 
@@ -63,15 +60,14 @@ fun ImageCropper(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Original image
+
             Image(
                 bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Image to crop",
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
 
-            // Crop overlay with resize handles
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
@@ -80,148 +76,142 @@ fun ImageCropper(
                             onDragStart = { offset ->
                                 val handleSize = 40f
                                 dragMode = when {
-                                    // Top-left corner
-                                    abs(offset.x - cropRect.left) < handleSize && 
-                                    abs(offset.y - cropRect.top) < handleSize -> DragMode.RESIZE_TL
-                                    // Top-right corner
-                                    abs(offset.x - cropRect.right) < handleSize && 
-                                    abs(offset.y - cropRect.top) < handleSize -> DragMode.RESIZE_TR
-                                    // Bottom-left corner
-                                    abs(offset.x - cropRect.left) < handleSize && 
-                                    abs(offset.y - cropRect.bottom) < handleSize -> DragMode.RESIZE_BL
-                                    // Bottom-right corner
-                                    abs(offset.x - cropRect.right) < handleSize && 
-                                    abs(offset.y - cropRect.bottom) < handleSize -> DragMode.RESIZE_BR
-                                    // Inside rect - move
-                                    offset.x >= cropRect.left && offset.x <= cropRect.right &&
-                                    offset.y >= cropRect.top && offset.y <= cropRect.bottom -> DragMode.MOVE
+                                    abs(offset.x - cropRect.left) < handleSize &&
+                                            abs(offset.y - cropRect.top) < handleSize ->
+                                        DragMode.RESIZE_TL
+
+                                    abs(offset.x - cropRect.right) < handleSize &&
+                                            abs(offset.y - cropRect.top) < handleSize ->
+                                        DragMode.RESIZE_TR
+
+                                    abs(offset.x - cropRect.left) < handleSize &&
+                                            abs(offset.y - cropRect.bottom) < handleSize ->
+                                        DragMode.RESIZE_BL
+
+                                    abs(offset.x - cropRect.right) < handleSize &&
+                                            abs(offset.y - cropRect.bottom) < handleSize ->
+                                        DragMode.RESIZE_BR
+
+                                    offset.x in cropRect.left..cropRect.right &&
+                                            offset.y in cropRect.top..cropRect.bottom ->
+                                        DragMode.MOVE
+
                                     else -> DragMode.NONE
                                 }
                             },
+
                             onDrag = { change, dragAmount ->
                                 change.consume()
-                                
-                                if (dragMode == DragMode.NONE) return@detectDragGestures
-                                
-                                val minSize = 50f
-                                val newRect = when (dragMode) {
+                                val minSize = 80f
+
+                                cropRect = when (dragMode) {
+
                                     DragMode.MOVE -> {
-                                        cropRect.translate(dragAmount)
+                                        val newLeft = (cropRect.left + dragAmount.x)
+                                            .coerceIn(0f, size.width - cropRect.width)
+                                        val newTop = (cropRect.top + dragAmount.y)
+                                            .coerceIn(0f, size.height - cropRect.height)
+
+                                        Rect(Offset(newLeft, newTop), cropRect.size)
                                     }
+
                                     DragMode.RESIZE_TL -> {
-                                        val newLeft = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
-                                        val newTop = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
-                                        val newWidth = (cropRect.right - newLeft).coerceAtLeast(minSize)
-                                        val newHeight = (cropRect.bottom - newTop).coerceAtLeast(minSize)
+                                        val left = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
+                                        val top = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
                                         Rect(
-                                            offset = Offset(newLeft, newTop),
-                                            size = Size(newWidth, newHeight)
+                                            Offset(left, top),
+                                            Size(
+                                                (cropRect.right - left).coerceAtLeast(minSize),
+                                                (cropRect.bottom - top).coerceAtLeast(minSize)
+                                            )
                                         )
                                     }
+
                                     DragMode.RESIZE_TR -> {
-                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width.toFloat())
-                                        val newTop = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
-                                        val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
-                                        val newHeight = (cropRect.bottom - newTop).coerceAtLeast(minSize)
+                                        val right = (cropRect.right + dragAmount.x)
+                                            .coerceAtMost(size.width.toFloat())
+                                        val top = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
                                         Rect(
-                                            offset = Offset(cropRect.left, newTop),
-                                            size = Size(newWidth, newHeight)
+                                            Offset(cropRect.left, top),
+                                            Size(
+                                                (right - cropRect.left).coerceAtLeast(minSize),
+                                                (cropRect.bottom - top).coerceAtLeast(minSize)
+                                            )
                                         )
                                     }
+
                                     DragMode.RESIZE_BL -> {
-                                        val newLeft = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
-                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height.toFloat())
-                                        val newWidth = (cropRect.right - newLeft).coerceAtLeast(minSize)
-                                        val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
+                                        val left = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
+                                        val bottom = (cropRect.bottom + dragAmount.y)
+                                            .coerceAtMost(size.height.toFloat())
                                         Rect(
-                                            offset = Offset(newLeft, cropRect.top),
-                                            size = Size(newWidth, newHeight)
+                                            Offset(left, cropRect.top),
+                                            Size(
+                                                (cropRect.right - left).coerceAtLeast(minSize),
+                                                (bottom - cropRect.top).coerceAtLeast(minSize)
+                                            )
                                         )
                                     }
+
                                     DragMode.RESIZE_BR -> {
-                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width.toFloat())
-                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height.toFloat())
-                                        val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
-                                        val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
+                                        val right = (cropRect.right + dragAmount.x)
+                                            .coerceAtMost(size.width.toFloat())
+                                        val bottom = (cropRect.bottom + dragAmount.y)
+                                            .coerceAtMost(size.height.toFloat())
                                         Rect(
-                                            offset = cropRect.topLeft,
-                                            size = Size(newWidth, newHeight)
+                                            cropRect.topLeft,
+                                            Size(
+                                                (right - cropRect.left).coerceAtLeast(minSize),
+                                                (bottom - cropRect.top).coerceAtLeast(minSize)
+                                            )
                                         )
                                     }
+
                                     else -> cropRect
                                 }
-                                
-                                cropRect = newRect
                             },
-                            onDragEnd = {
-                                dragMode = DragMode.NONE
-                            }
+
+                            onDragEnd = { dragMode = DragMode.NONE }
                         )
                     }
             ) {
                 canvasSize = size
-                
-                // Draw semi-transparent overlay
+
                 drawRect(
-                    color = Color.Black.copy(alpha = 0.5f),
+                    color = Color.Black.copy(alpha = 0.6f),
                     size = size
                 )
 
-                // Clear crop area (transparent)
                 drawRect(
                     color = Color.Transparent,
                     topLeft = cropRect.topLeft,
-                    size = cropRect.size
+                    size = cropRect.size,
+                    blendMode = BlendMode.Clear
                 )
 
-                // Draw crop border
                 drawRect(
                     color = Color.Cyan,
                     topLeft = cropRect.topLeft,
                     size = cropRect.size,
-                    style = Stroke(width = 3f)
+                    style = Stroke(3f)
                 )
 
-                // Draw corner handles
-                val handleRadius = 15f
-                val handleColor = Color.Yellow
-                
-                // Top-left
-                drawCircle(
-                    color = handleColor,
-                    radius = handleRadius,
-                    center = cropRect.topLeft
-                )
-                // Top-right
-                drawCircle(
-                    color = handleColor,
-                    radius = handleRadius,
-                    center = Offset(cropRect.right, cropRect.top)
-                )
-                // Bottom-left
-                drawCircle(
-                    color = handleColor,
-                    radius = handleRadius,
-                    center = Offset(cropRect.left, cropRect.bottom)
-                )
-                // Bottom-right
-                drawCircle(
-                    color = handleColor,
-                    radius = handleRadius,
-                    center = Offset(cropRect.right, cropRect.bottom)
-                )
+                val r = 14f
+                val c = Color.Yellow
+
+                drawCircle(c, r, cropRect.topLeft)
+                drawCircle(c, r, Offset(cropRect.right, cropRect.top))
+                drawCircle(c, r, Offset(cropRect.left, cropRect.bottom))
+                drawCircle(c, r, Offset(cropRect.right, cropRect.bottom))
             }
         }
 
-        // Instructions
         Text(
-            "Drag corners to resize • Drag inside to move",
+            "Drag corner to resize • Drag inside to move",
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(8.dp)
         )
 
-        // Action buttons
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -236,12 +226,24 @@ fun ImageCropper(
             }
 
             Button(
+                modifier = Modifier.weight(1f),
                 onClick = {
-                    // Crop the bitmap
-                    val croppedBitmap = cropBitmap(bitmap, cropRect)
-                    onCropConfirmed(croppedBitmap)
-                },
-                modifier = Modifier.weight(1f)
+                    val scaleX = bitmap.width / canvasSize.width
+                    val scaleY = bitmap.height / canvasSize.height
+
+                    val mappedRect = Rect(
+                        Offset(
+                            cropRect.left * scaleX,
+                            cropRect.top * scaleY
+                        ),
+                        Size(
+                            cropRect.width * scaleX,
+                            cropRect.height * scaleY
+                        )
+                    )
+
+                    onCropConfirmed(cropBitmap(bitmap, mappedRect))
+                }
             ) {
                 Text("Confirm & Solve")
             }
@@ -252,14 +254,8 @@ fun ImageCropper(
 private fun cropBitmap(bitmap: Bitmap, rect: Rect): Bitmap {
     val x = rect.left.toInt().coerceIn(0, bitmap.width - 1)
     val y = rect.top.toInt().coerceIn(0, bitmap.height - 1)
-    val width = rect.width.toInt().coerceAtMost(bitmap.width - x)
-    val height = rect.height.toInt().coerceAtMost(bitmap.height - y)
-    
-    return Bitmap.createBitmap(
-        bitmap,
-        x,
-        y,
-        width.coerceAtLeast(1),
-        height.coerceAtLeast(1)
-    )
+    val w = rect.width.toInt().coerceAtMost(bitmap.width - x)
+    val h = rect.height.toInt().coerceAtMost(bitmap.height - y)
+
+    return Bitmap.createBitmap(bitmap, x, y, w.coerceAtLeast(1), h.coerceAtLeast(1))
 }
