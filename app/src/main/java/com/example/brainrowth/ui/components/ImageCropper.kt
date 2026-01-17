@@ -19,6 +19,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.abs
+
+enum class DragMode {
+    NONE, MOVE, RESIZE_TL, RESIZE_TR, RESIZE_BL, RESIZE_BR
+}
 
 @Composable
 fun ImageCropper(
@@ -38,6 +43,9 @@ fun ImageCropper(
             )
         )
     }
+    
+    var dragMode by remember { mutableStateOf(DragMode.NONE) }
+    var canvasSize by remember { mutableStateOf(Size.Zero) }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -63,24 +71,103 @@ fun ImageCropper(
                 contentScale = ContentScale.Fit
             )
 
-            // Crop overlay
+            // Crop overlay with resize handles
             Canvas(
                 modifier = Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            cropRect = cropRect.translate(dragAmount)
-                        }
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                val handleSize = 40f
+                                dragMode = when {
+                                    // Top-left corner
+                                    abs(offset.x - cropRect.left) < handleSize && 
+                                    abs(offset.y - cropRect.top) < handleSize -> DragMode.RESIZE_TL
+                                    // Top-right corner
+                                    abs(offset.x - cropRect.right) < handleSize && 
+                                    abs(offset.y - cropRect.top) < handleSize -> DragMode.RESIZE_TR
+                                    // Bottom-left corner
+                                    abs(offset.x - cropRect.left) < handleSize && 
+                                    abs(offset.y - cropRect.bottom) < handleSize -> DragMode.RESIZE_BL
+                                    // Bottom-right corner
+                                    abs(offset.x - cropRect.right) < handleSize && 
+                                    abs(offset.y - cropRect.bottom) < handleSize -> DragMode.RESIZE_BR
+                                    // Inside rect - move
+                                    offset.x >= cropRect.left && offset.x <= cropRect.right &&
+                                    offset.y >= cropRect.top && offset.y <= cropRect.bottom -> DragMode.MOVE
+                                    else -> DragMode.NONE
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                
+                                if (dragMode == DragMode.NONE) return@detectDragGestures
+                                
+                                val minSize = 50f
+                                val newRect = when (dragMode) {
+                                    DragMode.MOVE -> {
+                                        cropRect.translate(dragAmount)
+                                    }
+                                    DragMode.RESIZE_TL -> {
+                                        val newLeft = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
+                                        val newTop = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
+                                        val newWidth = (cropRect.right - newLeft).coerceAtLeast(minSize)
+                                        val newHeight = (cropRect.bottom - newTop).coerceAtLeast(minSize)
+                                        Rect(
+                                            offset = Offset(newLeft, newTop),
+                                            size = Size(newWidth, newHeight)
+                                        )
+                                    }
+                                    DragMode.RESIZE_TR -> {
+                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width)
+                                        val newTop = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
+                                        val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
+                                        val newHeight = (cropRect.bottom - newTop).coerceAtLeast(minSize)
+                                        Rect(
+                                            offset = Offset(cropRect.left, newTop),
+                                            size = Size(newWidth, newHeight)
+                                        )
+                                    }
+                                    DragMode.RESIZE_BL -> {
+                                        val newLeft = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
+                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height)
+                                        val newWidth = (cropRect.right - newLeft).coerceAtLeast(minSize)
+                                        val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
+                                        Rect(
+                                            offset = Offset(newLeft, cropRect.top),
+                                            size = Size(newWidth, newHeight)
+                                        )
+                                    }
+                                    DragMode.RESIZE_BR -> {
+                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width)
+                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height)
+                                        val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
+                                        val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
+                                        Rect(
+                                            offset = cropRect.topLeft,
+                                            size = Size(newWidth, newHeight)
+                                        )
+                                    }
+                                    else -> cropRect
+                                }
+                                
+                                cropRect = newRect
+                            },
+                            onDragEnd = {
+                                dragMode = DragMode.NONE
+                            }
+                        )
                     }
             ) {
+                canvasSize = size
+                
                 // Draw semi-transparent overlay
                 drawRect(
                     color = Color.Black.copy(alpha = 0.5f),
                     size = size
                 )
 
-                // Clear crop area
+                // Clear crop area (transparent)
                 drawRect(
                     color = Color.Transparent,
                     topLeft = cropRect.topLeft,
@@ -89,32 +176,38 @@ fun ImageCropper(
 
                 // Draw crop border
                 drawRect(
-                    color = Color.White,
+                    color = Color.Cyan,
                     topLeft = cropRect.topLeft,
                     size = cropRect.size,
                     style = Stroke(width = 3f)
                 )
 
                 // Draw corner handles
-                val handleSize = 30f
+                val handleRadius = 15f
+                val handleColor = Color.Yellow
+                
+                // Top-left
                 drawCircle(
-                    color = Color.White,
-                    radius = handleSize / 2,
+                    color = handleColor,
+                    radius = handleRadius,
                     center = cropRect.topLeft
                 )
+                // Top-right
                 drawCircle(
-                    color = Color.White,
-                    radius = handleSize / 2,
+                    color = handleColor,
+                    radius = handleRadius,
                     center = Offset(cropRect.right, cropRect.top)
                 )
+                // Bottom-left
                 drawCircle(
-                    color = Color.White,
-                    radius = handleSize / 2,
+                    color = handleColor,
+                    radius = handleRadius,
                     center = Offset(cropRect.left, cropRect.bottom)
                 )
+                // Bottom-right
                 drawCircle(
-                    color = Color.White,
-                    radius = handleSize / 2,
+                    color = handleColor,
+                    radius = handleRadius,
                     center = Offset(cropRect.right, cropRect.bottom)
                 )
             }
@@ -122,7 +215,7 @@ fun ImageCropper(
 
         // Instructions
         Text(
-            "Drag to adjust crop area",
+            "Drag corners to resize • Drag inside to move",
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(8.dp)
@@ -148,6 +241,13 @@ fun ImageCropper(
                     val croppedBitmap = cropBitmap(bitmap, cropRect)
                     onCropConfirmed(croppedBitmap)
                 },
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Confirm & Solve")
+            }
+        }
+    }
+}
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Confirm & Solve")
