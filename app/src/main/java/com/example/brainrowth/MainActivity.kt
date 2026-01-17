@@ -11,12 +11,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.brainrowth.data.remote.ApiClient
 import com.example.brainrowth.ui.theme.BrainRowthTheme
 import com.example.brainrowth.view.SolverScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize ApiClient with context to load server config
+        ApiClient.init(applicationContext)
+        
         enableEdgeToEdge()
         setContent {
             BrainRowthTheme {

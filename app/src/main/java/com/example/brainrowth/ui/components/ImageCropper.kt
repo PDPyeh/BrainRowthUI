@@ -119,7 +119,7 @@ fun ImageCropper(
                                         )
                                     }
                                     DragMode.RESIZE_TR -> {
-                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width)
+                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width.toFloat())
                                         val newTop = (cropRect.top + dragAmount.y).coerceAtLeast(0f)
                                         val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
                                         val newHeight = (cropRect.bottom - newTop).coerceAtLeast(minSize)
@@ -130,7 +130,7 @@ fun ImageCropper(
                                     }
                                     DragMode.RESIZE_BL -> {
                                         val newLeft = (cropRect.left + dragAmount.x).coerceAtLeast(0f)
-                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height)
+                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height.toFloat())
                                         val newWidth = (cropRect.right - newLeft).coerceAtLeast(minSize)
                                         val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
                                         Rect(
@@ -139,8 +139,8 @@ fun ImageCropper(
                                         )
                                     }
                                     DragMode.RESIZE_BR -> {
-                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width)
-                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height)
+                                        val newRight = (cropRect.right + dragAmount.x).coerceAtMost(size.width.toFloat())
+                                        val newBottom = (cropRect.bottom + dragAmount.y).coerceAtMost(size.height.toFloat())
                                         val newWidth = (newRight - cropRect.left).coerceAtLeast(minSize)
                                         val newHeight = (newBottom - cropRect.top).coerceAtLeast(minSize)
                                         Rect(
@@ -241,13 +241,6 @@ fun ImageCropper(
                     val croppedBitmap = cropBitmap(bitmap, cropRect)
                     onCropConfirmed(croppedBitmap)
                 },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Confirm & Solve")
-            }
-        }
-    }
-}
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Confirm & Solve")

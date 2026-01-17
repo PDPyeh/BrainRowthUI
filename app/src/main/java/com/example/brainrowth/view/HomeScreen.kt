@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,7 +34,8 @@ import com.google.accompanist.permissions.rememberPermissionState
 enum class InputMode {
     MANUAL,
     CAMERA,
-    HISTORY
+    HISTORY,
+    SETTINGS
 }
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
@@ -95,6 +97,12 @@ fun SolverScreen(
                 text = { Text("History") },
                 icon = { Icon(Icons.Default.History, contentDescription = "History") }
             )
+            Tab(
+                selected = inputMode == InputMode.SETTINGS,
+                onClick = { inputMode = InputMode.SETTINGS },
+                text = { Text("Settings") },
+                icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") }
+            )
         }
 
         // Content based on selected mode
@@ -133,6 +141,9 @@ fun SolverScreen(
                     viewModel.loadFromHistory(history)
                     inputMode = InputMode.MANUAL
                 }
+            )
+            InputMode.SETTINGS -> ServerSettingsScreen(
+                onBack = { inputMode = InputMode.MANUAL }
             )
         }
     }
